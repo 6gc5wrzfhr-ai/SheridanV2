@@ -39,7 +39,7 @@ _CANDID_STYLE_ZH = (
     "手机随手抓拍的生活快照，现场自然光、光线略不均匀，构图随意像是顺手按下快门，"
     "真实质感、有一点点噪点或轻微动态模糊，景深浅、背景自然虚化，完全没有修图美化感。"
     "像真人用手机拍的普通照片，不是渲染图、不是CG、不是棚拍、不是商业广告图。"
-    "不要文字、不要水印、不要 NSFW。"
+    "不要文字、不要水印。"
 )
 _CANDID_STYLE_EN = (
     "An everyday phone snapshot grabbed in the moment, available ambient light "
