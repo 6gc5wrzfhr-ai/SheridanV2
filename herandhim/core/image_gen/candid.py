@@ -48,7 +48,7 @@ _CANDID_STYLE_EN = (
     "of field with a naturally blurred background, zero retouching or beautifying. "
     "Looks like an ordinary photo a real person took on a phone — NOT a render, "
     "NOT CGI, NOT a studio shot, NOT a commercial/stock image, not glossy. "
-    "No text, no watermark, no NSFW."
+    "No text, no watermark."
 )
 
 
