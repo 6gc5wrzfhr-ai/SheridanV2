@@ -5,8 +5,7 @@ All Comfy HTTP traffic is mocked. The generator must:
   - resolve skills.comfyui.identityWorkflow to a bundled or custom graph,
   - upload the face reference and substitute %reference% (plus the usual
     placeholders) into the graph,
-  - skip-if-missing: fall back to the plain workflow when the server lacks
-    the identity nodes,
+  - fail clearly rather than silently falling back when identity nodes are missing,
   - keep ignoring reference images when no identity workflow is configured.
 """
 import base64
@@ -167,8 +166,10 @@ class TestIdentityGeneration:
                      if isinstance(v, str) and v.startswith("%") and v.endswith("%")]
         assert leftovers == []
 
-    def test_missing_nodes_fall_back_to_plain_workflow(self, reference_file, monkeypatch):
-        """Skip-if-missing: PuLID pack not installed → plain txt2img, no upload."""
+    def test_missing_identity_nodes_fail_instead_of_dropping_face_reference(
+        self, reference_file, monkeypatch
+    ):
+        """A missing identity node pack must not silently produce a different face."""
         server = FakeComfy(node_classes={"KSampler", "CheckpointLoaderSimple",
                                          "EmptyLatentImage", "CLIPTextEncode",
                                          "VAEDecode", "SaveImage"})
@@ -177,26 +178,25 @@ class TestIdentityGeneration:
         monkeypatch.setenv("HERANDHIM_COMFYUI_IDENTITY_WORKFLOW", "flux-pulid")
 
         gen = make_generator()
-        out = gen.generate("selfie", size="1024x1024", seed=1,
-                           reference_image=reference_file)
+        with pytest.raises(SeedreamError, match="missing required node"):
+            gen.generate("selfie", size="1024x1024", seed=1,
+                         reference_image=reference_file)
 
-        assert out  # generation still succeeded
         assert server.uploads == []
-        classes = {n["class_type"] for n in server.submitted_graphs[0].values()}
-        assert "ApplyPulidFlux" not in classes
-        assert "KSampler" in classes
+        assert server.submitted_graphs == []
 
-    def test_no_identity_config_keeps_old_behaviour(self, fake_comfy, reference_file, monkeypatch):
-        """supports_ref stays False without config: reference silently dropped."""
+    def test_no_identity_config_fails_instead_of_dropping_face_reference(
+        self, fake_comfy, reference_file, monkeypatch
+    ):
+        """A supplied face reference requires an explicitly configured identity graph."""
         monkeypatch.delenv("HERANDHIM_COMFYUI_IDENTITY_WORKFLOW", raising=False)
         gen = make_generator()
-        out = gen.generate("selfie", size="1024x1024", seed=1,
-                           reference_image=reference_file)
+        with pytest.raises(SeedreamError, match="no identityWorkflow is set"):
+            gen.generate("selfie", size="1024x1024", seed=1,
+                         reference_image=reference_file)
 
-        assert out
         assert fake_comfy.uploads == []
-        classes = {n["class_type"] for n in fake_comfy.submitted_graphs[0].values()}
-        assert "LoadImage" not in classes
+        assert fake_comfy.submitted_graphs == []
 
     def test_custom_identity_workflow_missing_file_raises(self, fake_comfy, reference_file, monkeypatch):
         monkeypatch.setenv("HERANDHIM_COMFYUI_IDENTITY_WORKFLOW", "/nonexistent/graph.json")
