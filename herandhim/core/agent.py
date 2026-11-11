@@ -389,6 +389,30 @@ class Agent:
         """
         self._registry = SkillRegistry(skills_dirs=self.skills_dirs)
         skill_catalog = self._registry.build_catalog()
+        selfie_sharing_enabled = config.get_bool(
+            "selfie", "conversationSharing", default=True
+        )
+        selfie_sharing_frequency = (
+            config.get_str("selfie", "conversationFrequency", default="frequent")
+            .strip().lower() or "frequent"
+        )
+        if selfie_sharing_enabled:
+            selfie_sharing_section = f"""
+### Sharing photos naturally
+You may initiate a selfie when it genuinely adds to the conversation — the user
+does not have to ask first. The configured preference is **{selfie_sharing_frequency}**:
+look for opportunities during meaningful changes of scene, activity, outfit, or
+mood, but do not interrupt every exchange or send near-duplicates. Mix two styles:
+sometimes share the photo naturally with a short caption; sometimes tease that
+you want to show them something, then send it. Use the selfie skill/tool and wait
+for a successful result before saying the image was sent. Never fabricate an image.
+If generation fails, continue the conversation honestly without repeatedly retrying.
+"""
+        else:
+            selfie_sharing_section = """
+### Sharing photos naturally
+Do not initiate photos during conversation. Only generate one when the user asks.
+"""
 
         # Stable identity sections (cached across turns).  The day's calendar and
         # the latest memory snapshot are injected per-turn via _get_pruned_messages()
@@ -630,6 +654,8 @@ Two completely different scenarios — do not confuse them:
    - Only after a real tool error, apologize warmly and explain.
    - **Never** call `take_selfie` or `candid_shot` more than once per user
      turn — if the first call fails, write a text apology instead of retrying.
+
+{selfie_sharing_section}
 """
         # Memory snapshot is now injected per-turn via _get_pruned_messages()
         # (see VOLATILE_PREFIX). Keeping it out of the stable system message
