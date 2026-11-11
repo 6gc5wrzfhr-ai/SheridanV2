@@ -623,7 +623,7 @@ PRIMITIVE_TOOLS: list[dict] = [
     _fn(
         "candid_shot",
         "Take a candid 'look what I saw' phone snapshot of the world around you (NOT a selfie) and "
-        "send it to the user in one Telegram message. Pick a category based on context.",
+        "send it to the user in one message in the active chat. Pick a category based on context.",
         {
             "category": {
                 "type": "string",
