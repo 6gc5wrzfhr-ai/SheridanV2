@@ -37,7 +37,6 @@ _BASE_STYLE_ZH = (
     "现场自然光，光线略不均匀，景深浅、背景轻微虚化，可有一点点噪点或轻微动态模糊，构图随意不刻意。"
     "看起来就是真人用手机拍的普通照片，不是渲染图、不是CG、不是精修棚拍、不是杂志封面。"
     "画面里不要出现任何文字、字母、水印、字幕或logo。"
-    "不要 NSFW，不要暴露，不要血腥。"
 )
 
 _BASE_STYLE_EN = (
@@ -50,7 +49,7 @@ _BASE_STYLE_EN = (
     "like an ordinary photo a real person took on a phone — NOT a render, NOT "
     "CGI, NOT a retouched studio shot, NOT a magazine cover, not glossy or "
     "plastic. No text, no letters, no words, no watermark, no caption or logo "
-    "anywhere in the image. No NSFW, no nudity, no violence."
+    "anywhere in the image."
 )
 
 
@@ -97,14 +96,14 @@ _REFERENCE_STYLE_ZH = (
     "正脸清晰肖像，中性自然表情，柔和自然光，头肩特写，简洁纯色背景。"
     "真实皮肤质感，看得到毛孔和细小瑕疵，没有磨皮、没有美颜滤镜，"
     "像真人用手机拍的，不是精修棚拍、不是渲染图。"
-    "画面里不要任何文字、字母、水印、logo。不要 NSFW，不要暴露。"
+    "画面里不要任何文字、字母、水印、logo。"
 )
 _REFERENCE_STYLE_EN = (
     "Clear front-facing portrait, neutral natural expression, soft natural "
     "light, head-and-shoulders, plain solid background. Real skin texture with "
     "visible pores and tiny imperfections — NO airbrushing, NO beauty filter, "
     "NO skin smoothing; like a real phone photo, not a retouched studio shot or "
-    "a render. No text, letters, watermark or logo anywhere. No NSFW, no nudity."
+    "a render. No text, letters, watermark or logo anywhere."
 )
 
 
