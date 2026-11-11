@@ -1119,6 +1119,14 @@ function connectWebSocket() {
 
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
+    if (data.type === 'photo') {
+      removeThinking();
+      finalizeStream();
+      chatWaiting = false;
+      updateSendButton();
+      addPhotoMessage(data);
+      return;
+    }
     if (data.type === 'thinking') { addThinking(); return; }
     if (data.type === 'stream') {
       removeThinking();
@@ -1229,6 +1237,43 @@ function addMessage(role, content) {
   if (role === 'user') bubble.textContent = text;
   else bubble.innerHTML = renderMarkdown(text);
 
+  row.appendChild(bubble);
+  wrapper.appendChild(row);
+  container.appendChild(wrapper);
+  scrollChat();
+}
+
+function addPhotoMessage(data) {
+  const container = document.getElementById('chat-messages');
+  const welcome = container.querySelector('.text-center');
+  if (welcome) welcome.remove();
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'flex fade-in justify-start';
+  const row = document.createElement('div');
+  row.className = 'flex items-end gap-3 max-w-[70%]';
+  const avatar = document.createElement('div');
+  avatar.className = 'w-9 h-9 rounded-full overflow-hidden shrink-0 ring-2 ring-pink-400/30 shadow-md';
+  avatar.innerHTML = '<img src="/static/logo.png" class="w-full h-full object-cover" alt="">';
+  row.appendChild(avatar);
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble msg-bot';
+  const image = document.createElement('img');
+  image.src = 'data:' + (data.mime || 'image/jpeg') + ';base64,' + data.data;
+  image.alt = data.filename || 'Sheridan photo';
+  image.className = 'block max-w-full rounded-xl';
+  image.style.maxHeight = '480px';
+  image.style.objectFit = 'contain';
+  image.loading = 'lazy';
+  bubble.appendChild(image);
+
+  if (data.caption) {
+    const caption = document.createElement('div');
+    caption.className = 'mt-2 whitespace-pre-wrap';
+    caption.textContent = data.caption;
+    bubble.appendChild(caption);
+  }
   row.appendChild(bubble);
   wrapper.appendChild(row);
   container.appendChild(wrapper);
