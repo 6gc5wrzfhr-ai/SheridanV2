@@ -1122,8 +1122,6 @@ function connectWebSocket() {
     if (data.type === 'photo') {
       removeThinking();
       finalizeStream();
-      chatWaiting = false;
-      updateSendButton();
       addPhotoMessage(data);
       return;
     }
