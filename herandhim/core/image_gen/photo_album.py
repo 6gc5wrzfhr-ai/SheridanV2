@@ -110,8 +110,9 @@ class PhotoAlbum:
         """Resolve the canonical face reference without guessing from body/tattoo files.
 
         Prefer an explicitly configured master, then recognisable Sheridan/master
-        filenames, then the app's own canonical reference. Only as a last resort
-        use the first image in the configured reference directory.
+        filenames, then the app's own canonical reference. Never guess that an
+        arbitrary first image is the face: the flat source folder can also contain
+        body, pose, expression and tattoo references.
         """
         override = os.path.expanduser(_primary_reference_override())
         if override:
@@ -139,7 +140,11 @@ class PhotoAlbum:
                 return (3, name)
             return (4, name)
 
-        return sorted(refs, key=rank)[0]
+        ranked = sorted(refs, key=rank)
+        # A generic filename could be a body, pose, expression or tattoo image.
+        # Require an explicit master path/name rather than silently anchoring
+        # Sheridan's face to whichever file happens to sort first.
+        return ranked[0] if ranked and rank(ranked[0])[0] < 4 else None
 
     # Canonical face reference stored by the app. External reference collections
     # are read-only and are never deleted when this value is refreshed.
