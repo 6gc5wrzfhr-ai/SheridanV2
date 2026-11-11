@@ -607,10 +607,10 @@ class SeedreamGenerator:
     def _comfy_identity_graph(self, reference_image: str):
         """Load the configured identity workflow and upload the reference.
 
-        Returns ``(graph, uploaded_name)`` or ``None`` to fall back to the
-        plain text-to-image path. Skip-if-missing: when the server doesn't
-        have the required custom nodes (PuLID / InstantID not installed), we
-        log and fall back rather than fail the photo.
+        Returns ``(graph, uploaded_name)`` or ``None`` only when no
+        identity workflow is configured. If an identity workflow is configured
+        but its nodes or reference upload are unavailable, fail loudly rather
+        than silently generating a different-looking face.
         """
         import json as _json
 
@@ -622,12 +622,16 @@ class SeedreamGenerator:
         with open(path) as f:
             graph = _json.load(f)
 
-        # Skip-if-missing: check every class_type against the server's node
-        # catalogue. An unreachable/odd /object_info is not fatal — the job
-        # submission will surface real errors.
+        # Check every class_type against the server's node catalogue. If the
+        # catalogue is reachable and a required node is absent, do not proceed
+        # without identity conditioning. If the catalogue itself is unavailable,
+        # let the prompt submission surface the concrete server error.
         required = {node.get("class_type") for node in graph.values()}
         try:
             available = set(self._get(f"{self.base_url}/object_info").json())
+        except (SeedreamError, ValueError) as exc:
+            logger.debug("[image] comfyui node check skipped: %s", exc)
+        else:
             missing = sorted(c for c in required if c and c not in available)
             if missing:
                 raise SeedreamError(
@@ -636,8 +640,6 @@ class SeedreamGenerator:
                     + ". Install the matching InstantID/PuLID node pack and restart ComfyUI. "
                     "Generation stopped rather than silently dropping Sheridan's face reference."
                 )
-        except (SeedreamError, ValueError) as exc:
-            logger.debug("[image] comfyui node check skipped: %s", exc)
 
         uploaded = self._comfy_upload_reference(reference_image)
         if not uploaded:
