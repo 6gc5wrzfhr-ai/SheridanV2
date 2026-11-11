@@ -129,6 +129,13 @@ def ensure_reference(
     local = album.primary_reference()
     if local:
         return local
+    if album.list_references():
+        raise SeedreamError(
+            "Sheridan reference images were found, but no primary face master "
+            "could be identified safely. Set skills.image.primaryReference to "
+            "the exact approved face portrait; refusing to guess from body, pose, "
+            "expression or tattoo references."
+        )
 
     # Bootstrap: generate a clean face-card once, persist it locally so every
     # later selfie anchors on the same face.
