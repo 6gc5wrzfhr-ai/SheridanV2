@@ -266,6 +266,12 @@ class SeedreamGenerator:
         # (PuLID / InstantID) is configured — see templates/comfyui/.
         if self.provider == "comfyui" and _identity_workflow_path():
             supports_ref = True
+        elif self.provider == "comfyui" and reference_image:
+            raise SeedreamError(
+                "ComfyUI face reference is configured but no identityWorkflow is set. "
+                "Set skills.comfyui.identityWorkflow to 'sdxl-instantid' or a custom "
+                "API-format identity graph; refusing to silently generate without the face reference."
+            )
         if reference_image and not supports_ref:
             logger.info("[image] %s has no reference-image support — "
                         "generating without one (face may drift)", self.provider)
@@ -624,17 +630,21 @@ class SeedreamGenerator:
             available = set(self._get(f"{self.base_url}/object_info").json())
             missing = sorted(c for c in required if c and c not in available)
             if missing:
-                logger.warning(
-                    "[image] comfyui is missing identity nodes %s — install the "
-                    "PuLID/InstantID node pack; generating without a face "
-                    "reference (face may drift)", missing)
-                return None
+                raise SeedreamError(
+                    "ComfyUI identity workflow is missing required node(s): "
+                    + ", ".join(missing)
+                    + ". Install the matching InstantID/PuLID node pack and restart ComfyUI. "
+                    "Generation stopped rather than silently dropping Sheridan's face reference."
+                )
         except (SeedreamError, ValueError) as exc:
             logger.debug("[image] comfyui node check skipped: %s", exc)
 
         uploaded = self._comfy_upload_reference(reference_image)
         if not uploaded:
-            return None
+            raise SeedreamError(
+                "ComfyUI could not upload Sheridan's face reference. "
+                "Generation stopped rather than producing an unanchored face."
+            )
         return graph, uploaded
 
     def _gen_comfyui(self, prompt, *, size, n, seed, reference_image, model):
