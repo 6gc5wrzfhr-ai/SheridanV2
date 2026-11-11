@@ -114,7 +114,11 @@ class PhotoAlbum:
         use the first image in the configured reference directory.
         """
         override = os.path.expanduser(_primary_reference_override())
-        if override and os.path.isfile(override):
+        if override:
+            if not os.path.isfile(override):
+                raise FileNotFoundError(
+                    f"Configured Sheridan primaryReference does not exist: {override}"
+                )
             return os.path.realpath(override)
 
         refs = self.list_references()
