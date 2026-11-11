@@ -1018,6 +1018,7 @@ def _register_web_file_sender(loop: asyncio.AbstractEventLoop, ws: WebSocket) ->
                 await ws.send_json(payload)
             except Exception as exc:
                 logger.warning("[Web] %s via WS failed: %s", label, exc)
+                raise
 
         future = asyncio.run_coroutine_threadsafe(_push(), loop)
         future.result(timeout=60)
