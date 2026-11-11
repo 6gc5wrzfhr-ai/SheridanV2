@@ -105,7 +105,9 @@
   },
   "skills": {
     "image": {
-      "provider": ""
+      "provider": "",
+      "referenceDirectory": "",
+      "primaryReference": ""
     },
     "gemini": {
       "apiKey": "",
