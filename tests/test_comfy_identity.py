@@ -6,7 +6,7 @@ All Comfy HTTP traffic is mocked. The generator must:
   - upload the face reference and substitute %reference% (plus the usual
     placeholders) into the graph,
   - fail clearly rather than silently falling back when identity nodes are missing,
-  - keep ignoring reference images when no identity workflow is configured.
+  - require an identity workflow whenever a face reference is supplied.
 """
 import base64
 import json
@@ -184,6 +184,19 @@ class TestIdentityGeneration:
 
         assert server.uploads == []
         assert server.submitted_graphs == []
+
+    def test_no_reference_without_identity_workflow_keeps_plain_generation(
+        self, fake_comfy, monkeypatch
+    ):
+        """Plain ComfyUI generation remains available when no face anchor is requested."""
+        monkeypatch.delenv("HERANDHIM_COMFYUI_IDENTITY_WORKFLOW", raising=False)
+        gen = make_generator()
+        out = gen.generate("landscape photo", size="1024x1024", seed=1)
+
+        assert out
+        assert fake_comfy.uploads == []
+        classes = {n["class_type"] for n in fake_comfy.submitted_graphs[0].values()}
+        assert "LoadImage" not in classes
 
     def test_no_identity_config_fails_instead_of_dropping_face_reference(
         self, fake_comfy, reference_file, monkeypatch
