@@ -110,3 +110,17 @@ def test_album_instances_use_their_own_reference_directory(tmp_path, monkeypatch
 
     assert first.primary_reference() is not None
     assert second.primary_reference() is None
+
+
+def test_unlabelled_reference_collection_does_not_guess_a_face_master(tmp_path, monkeypatch):
+    source = tmp_path / "Image References"
+    source.mkdir()
+    for name in ("01_body.png", "02_pose.png", "03_tattoos.png"):
+        (source / name).write_bytes(b"image")
+
+    monkeypatch.setenv("HERANDHIM_IMAGE_REFERENCE_DIR", str(source))
+    monkeypatch.delenv("HERANDHIM_IMAGE_PRIMARY_REFERENCE", raising=False)
+    album = PhotoAlbum(root=str(tmp_path / "album"))
+
+    assert album.list_references()
+    assert album.primary_reference() is None
