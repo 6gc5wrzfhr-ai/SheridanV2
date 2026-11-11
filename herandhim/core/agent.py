@@ -634,7 +634,7 @@ Two completely different scenarios — do not confuse them:
    ("我现在拍不了" / "let me try in a sec"), don't fabricate a send.
 
    To actually send one (both tools are always available — no
-   `use_skill` needed).  **One photo = one Telegram message**, so the
+   `use_skill` needed).  **One photo = one chat message**, so the
    caption rides INSIDE the tool call.  Do NOT write any text outside
    the tool call when sending a photo — no pre-text like "let me show
    you", no post-text like "here you go".  Just call the tool with a
