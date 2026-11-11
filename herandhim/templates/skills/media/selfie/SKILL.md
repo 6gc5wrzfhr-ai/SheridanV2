@@ -52,8 +52,8 @@ You can use `HERANDHIM_IMAGE_REFERENCE_DIR` and
 `HERANDHIM_IMAGE_PRIMARY_REFERENCE` instead of the two reference paths.
 The reference directory is read-only: HerAndHim does not rename or delete your
 source images. The explicitly selected primary reference is used as the face
-anchor; the rest of the collection remains available for later body, pose,
-expression and tattoo conditioning.
+anchor. The rest of the source collection is preserved unchanged for the next
+stage, when we add separate body, pose, expression and tattoo conditioning.
 
 ## Commands
 
