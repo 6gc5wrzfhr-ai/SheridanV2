@@ -27,9 +27,10 @@ Two response shapes exist in the wild — a URL to fetch, or inline base64 —
 so :meth:`generate` normalizes both into ``{"url": …}`` / ``{"b64": …}`` and
 :meth:`generate_and_download` writes either to disk.
 
-Reference images (what keeps every selfie the same person) are only supported
-by some backends; where they aren't, the request still goes through without one
-rather than failing, and we say so in the log.
+Reference images are backend-dependent. For ComfyUI, a supplied face reference
+requires a configured identity workflow and successful upload; generation fails
+closed rather than silently producing an unanchored face. Other backends retain
+their documented reference-image behaviour.
 """
 
 from __future__ import annotations
@@ -102,8 +103,8 @@ IDENTITY_WORKFLOWS: dict[str, str] = {
 def _identity_workflow_path() -> str:
     """Resolve the configured ComfyUI identity workflow to a file path.
 
-    Returns "" when no identity workflow is configured (reference images are
-    then ignored for comfyui, as before).
+    Returns "" when no identity workflow is configured. A supplied ComfyUI
+    reference is rejected earlier unless an identity workflow is configured.
     """
     name = _cfg("comfyui", "identityWorkflow",
                 env="HERANDHIM_COMFYUI_IDENTITY_WORKFLOW").strip()
@@ -583,7 +584,7 @@ class SeedreamGenerator:
         """Upload the face reference to ComfyUI's input folder.
 
         Returns the server-side filename to feed a LoadImage node, or None on
-        failure (the caller then generates without a reference).
+        failure. The identity graph caller treats a failed upload as fatal.
         """
         try:
             with open(reference_image, "rb") as f:
