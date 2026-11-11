@@ -284,7 +284,23 @@ def take_selfie(
 # ── Config helpers ─────────────────────────────────────────────────────────
 
 def is_enabled() -> bool:
-    """Selfie feature is enabled when both Seedream key and feature flag are on."""
+    """Return whether selfies are enabled and the selected image backend is usable.
+
+    Local/keyless backends (ComfyUI, SD WebUI, and Pollinations) do not need
+    an API key. Cloud backends are enabled only when their configured key is
+    available. This keeps the scheduler and on-demand selfie skill aligned
+    with the provider selected in skills.image.provider.
+    """
     if not config.get_bool("selfie", "enabled", default=True):
         return False
-    return bool(config.get_str("skills", "seedream", "apiKey", env="ARK_API_KEY"))
+
+    from .generator import KEYLESS, SeedreamError, _provider, _read_api_key
+
+    provider = _provider()
+    if provider in KEYLESS:
+        return True
+    try:
+        _read_api_key(provider)
+    except SeedreamError:
+        return False
+    return True
