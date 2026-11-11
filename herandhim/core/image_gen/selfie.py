@@ -37,7 +37,6 @@ _BASE_STYLE_ZH = (
     "现场自然光，光线略不均匀，景深浅、背景轻微虚化，可有一点点噪点或轻微动态模糊，构图随意不刻意。"
     "看起来就是真人用手机拍的普通照片，不是渲染图、不是CG、不是精修棚拍、不是杂志封面。"
     "画面里不要出现任何文字、字母、水印、字幕或logo。"
-    "不要 NSFW，不要暴露，不要血腥。"
 )
 
 _BASE_STYLE_EN = (
@@ -50,7 +49,7 @@ _BASE_STYLE_EN = (
     "like an ordinary photo a real person took on a phone — NOT a render, NOT "
     "CGI, NOT a retouched studio shot, NOT a magazine cover, not glossy or "
     "plastic. No text, no letters, no words, no watermark, no caption or logo "
-    "anywhere in the image. No NSFW, no nudity, no violence."
+    "anywhere in the image."
 )
 
 
@@ -97,14 +96,14 @@ _REFERENCE_STYLE_ZH = (
     "正脸清晰肖像，中性自然表情，柔和自然光，头肩特写，简洁纯色背景。"
     "真实皮肤质感，看得到毛孔和细小瑕疵，没有磨皮、没有美颜滤镜，"
     "像真人用手机拍的，不是精修棚拍、不是渲染图。"
-    "画面里不要任何文字、字母、水印、logo。不要 NSFW，不要暴露。"
+    "画面里不要任何文字、字母、水印、logo。"
 )
 _REFERENCE_STYLE_EN = (
     "Clear front-facing portrait, neutral natural expression, soft natural "
     "light, head-and-shoulders, plain solid background. Real skin texture with "
     "visible pores and tiny imperfections — NO airbrushing, NO beauty filter, "
     "NO skin smoothing; like a real phone photo, not a retouched studio shot or "
-    "a render. No text, letters, watermark or logo anywhere. No NSFW, no nudity."
+    "a render. No text, letters, watermark or logo anywhere."
 )
 
 
@@ -130,6 +129,13 @@ def ensure_reference(
     local = album.primary_reference()
     if local:
         return local
+    if album.list_references():
+        raise SeedreamError(
+            "Sheridan reference images were found, but no primary face master "
+            "could be identified safely. Set skills.image.primaryReference to "
+            "the exact approved face portrait; refusing to guess from body, pose, "
+            "expression or tattoo references."
+        )
 
     # Bootstrap: generate a clean face-card once, persist it locally so every
     # later selfie anchors on the same face.
@@ -284,7 +290,23 @@ def take_selfie(
 # ── Config helpers ─────────────────────────────────────────────────────────
 
 def is_enabled() -> bool:
-    """Selfie feature is enabled when both Seedream key and feature flag are on."""
+    """Return whether selfies are enabled and the selected image backend is usable.
+
+    Local/keyless backends (ComfyUI, SD WebUI, and Pollinations) do not need
+    an API key. Cloud backends are enabled only when their configured key is
+    available. This keeps the scheduler and on-demand selfie skill aligned
+    with the provider selected in skills.image.provider.
+    """
     if not config.get_bool("selfie", "enabled", default=True):
         return False
-    return bool(config.get_str("skills", "seedream", "apiKey", env="ARK_API_KEY"))
+
+    from .generator import KEYLESS, SeedreamError, _provider, _read_api_key
+
+    provider = _provider()
+    if provider in KEYLESS:
+        return True
+    try:
+        _read_api_key(provider)
+    except SeedreamError:
+        return False
+    return True

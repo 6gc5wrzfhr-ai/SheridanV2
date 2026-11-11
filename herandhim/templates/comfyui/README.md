@@ -14,11 +14,12 @@ Placeholders substituted at run time: `%prompt%`, `%negative%`, `%model%`,
 `%width%`, `%height%`, `%seed%`, and `%reference%` (the uploaded face
 reference's server-side filename).
 
-Skip-if-missing: before submitting, HerAndHim asks the server (`/object_info`)
-whether every `class_type` in the graph exists. If any identity node is
-missing, it logs a warning and falls back to the plain text-to-image workflow
-— generation never fails just because the node pack isn't installed. Missing
-*model files* are reported by ComfyUI itself when the job is submitted.
+Fail-closed identity check: before submitting, HerAndHim asks the server
+(`/object_info`) whether every `class_type` in the configured identity graph
+exists. If an identity node is missing, or the reference image cannot be
+uploaded, generation stops with a clear error. It never silently falls back
+to plain text-to-image when a face reference was requested. Missing *model
+files* are reported by ComfyUI itself when the job is submitted.
 
 If your model filenames differ from the pinned ones above, copy the bundled
 graph, edit the loader inputs, and point `identityWorkflow` at your copy.

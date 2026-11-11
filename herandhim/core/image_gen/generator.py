@@ -27,9 +27,10 @@ Two response shapes exist in the wild — a URL to fetch, or inline base64 —
 so :meth:`generate` normalizes both into ``{"url": …}`` / ``{"b64": …}`` and
 :meth:`generate_and_download` writes either to disk.
 
-Reference images (what keeps every selfie the same person) are only supported
-by some backends; where they aren't, the request still goes through without one
-rather than failing, and we say so in the log.
+Reference images are backend-dependent. For ComfyUI, a supplied face reference
+requires a configured identity workflow and successful upload; generation fails
+closed rather than silently producing an unanchored face. Other backends retain
+their documented reference-image behaviour.
 """
 
 from __future__ import annotations
@@ -102,8 +103,8 @@ IDENTITY_WORKFLOWS: dict[str, str] = {
 def _identity_workflow_path() -> str:
     """Resolve the configured ComfyUI identity workflow to a file path.
 
-    Returns "" when no identity workflow is configured (reference images are
-    then ignored for comfyui, as before).
+    Returns "" when no identity workflow is configured. A supplied ComfyUI
+    reference is rejected earlier unless an identity workflow is configured.
     """
     name = _cfg("comfyui", "identityWorkflow",
                 env="HERANDHIM_COMFYUI_IDENTITY_WORKFLOW").strip()
@@ -266,6 +267,12 @@ class SeedreamGenerator:
         # (PuLID / InstantID) is configured — see templates/comfyui/.
         if self.provider == "comfyui" and _identity_workflow_path():
             supports_ref = True
+        elif self.provider == "comfyui" and reference_image:
+            raise SeedreamError(
+                "ComfyUI face reference is configured but no identityWorkflow is set. "
+                "Set skills.comfyui.identityWorkflow to 'sdxl-instantid' or a custom "
+                "API-format identity graph; refusing to silently generate without the face reference."
+            )
         if reference_image and not supports_ref:
             logger.info("[image] %s has no reference-image support — "
                         "generating without one (face may drift)", self.provider)
@@ -577,7 +584,7 @@ class SeedreamGenerator:
         """Upload the face reference to ComfyUI's input folder.
 
         Returns the server-side filename to feed a LoadImage node, or None on
-        failure (the caller then generates without a reference).
+        failure. The identity graph caller treats a failed upload as fatal.
         """
         try:
             with open(reference_image, "rb") as f:
@@ -601,10 +608,10 @@ class SeedreamGenerator:
     def _comfy_identity_graph(self, reference_image: str):
         """Load the configured identity workflow and upload the reference.
 
-        Returns ``(graph, uploaded_name)`` or ``None`` to fall back to the
-        plain text-to-image path. Skip-if-missing: when the server doesn't
-        have the required custom nodes (PuLID / InstantID not installed), we
-        log and fall back rather than fail the photo.
+        Returns ``(graph, uploaded_name)`` or ``None`` only when no
+        identity workflow is configured. If an identity workflow is configured
+        but its nodes or reference upload are unavailable, fail loudly rather
+        than silently generating a different-looking face.
         """
         import json as _json
 
@@ -616,25 +623,31 @@ class SeedreamGenerator:
         with open(path) as f:
             graph = _json.load(f)
 
-        # Skip-if-missing: check every class_type against the server's node
-        # catalogue. An unreachable/odd /object_info is not fatal — the job
-        # submission will surface real errors.
+        # Check every class_type against the server's node catalogue. If the
+        # catalogue is reachable and a required node is absent, do not proceed
+        # without identity conditioning. If the catalogue itself is unavailable,
+        # let the prompt submission surface the concrete server error.
         required = {node.get("class_type") for node in graph.values()}
         try:
             available = set(self._get(f"{self.base_url}/object_info").json())
-            missing = sorted(c for c in required if c and c not in available)
-            if missing:
-                logger.warning(
-                    "[image] comfyui is missing identity nodes %s — install the "
-                    "PuLID/InstantID node pack; generating without a face "
-                    "reference (face may drift)", missing)
-                return None
         except (SeedreamError, ValueError) as exc:
             logger.debug("[image] comfyui node check skipped: %s", exc)
+        else:
+            missing = sorted(c for c in required if c and c not in available)
+            if missing:
+                raise SeedreamError(
+                    "ComfyUI identity workflow is missing required node(s): "
+                    + ", ".join(missing)
+                    + ". Install the matching InstantID/PuLID node pack and restart ComfyUI. "
+                    "Generation stopped rather than silently dropping Sheridan's face reference."
+                )
 
         uploaded = self._comfy_upload_reference(reference_image)
         if not uploaded:
-            return None
+            raise SeedreamError(
+                "ComfyUI could not upload Sheridan's face reference. "
+                "Generation stopped rather than producing an unanchored face."
+            )
         return graph, uploaded
 
     def _gen_comfyui(self, prompt, *, size, n, seed, reference_image, model):

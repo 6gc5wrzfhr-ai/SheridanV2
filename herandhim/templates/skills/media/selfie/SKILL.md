@@ -1,6 +1,6 @@
 ---
 name: selfie
-description: "Generate and send a selfie of yourself (the AI partner — boyfriend or girlfriend) to the user via Seedream. Use when the user asks for a photo, asks what you're doing right now visually, or you want to share a moment. NOT for: generic image generation (use image_gen), photo editing, or screenshots."
+description: "Generate and send a selfie of yourself (the AI companion) to the user using the configured image provider, including local ComfyUI. Use when the user asks for a photo or when a spontaneous photo would naturally enrich the conversation. NOT for: generic image generation (use image_gen), photo editing, or screenshots."
 dependencies: requests
 metadata:
   emoji: "🤳"
@@ -27,26 +27,33 @@ planner) and your appearance.  The photo is sent via the active channel.
 - The user asks for a generic image / illustration → use `image_gen`
 - They want a photo of something other than yourself → use `image_gen`
 - They want to edit an existing image
-- Selfie feature is disabled (`selfie.enabled = false` in config)
+- Selfie feature is disabled (`selfie.enabled = false` in config) or no usable image provider is configured
 
 ## Setup
 
-Requires a BytePlus Ark API key (Seedream).  Configure in `herandhim.json`:
+Uses the image provider selected in `skills.image.provider`. For local generation, set it to `comfyui` and configure the ComfyUI URL and identity workflow:
 
 ```json
 "skills": {
-  "seedream": {
-    "apiKey": "YOUR_ARK_API_KEY",
-    "model": "seedream-5-0-lite-260128"
+  "image": {
+    "provider": "comfyui",
+    "referenceDirectory": "/path/to/Image References",
+    "primaryReference": "/path/to/Image References/Sheridan_Master.png"
+  },
+  "comfyui": {
+    "baseUrl": "http://127.0.0.1:8188",
+    "identityWorkflow": "sdxl-instantid",
+    "checkpoint": "your-sdxl-checkpoint.safetensors"
   }
 }
 ```
 
-Or set `ARK_API_KEY` environment variable.
-
-**Optional**: drop reference portraits into
-`~/.herandhim/context/photos/reference/` for face consistency, and edit
-`~/.herandhim/context/persona/appearance.md` to lock the visual look.
+You can use `HERANDHIM_IMAGE_REFERENCE_DIR` and
+`HERANDHIM_IMAGE_PRIMARY_REFERENCE` instead of the two reference paths.
+The reference directory is read-only: HerAndHim does not rename or delete your
+source images. The explicitly selected primary reference is used as the face
+anchor. The rest of the source collection is preserved unchanged for the next
+stage, when we add separate body, pose, expression and tattoo conditioning.
 
 ## Commands
 
@@ -70,9 +77,9 @@ python {skill_path}/take_selfie.py --model seedream-5-0-260128
 
 ## Notes
 
-- Generation takes 5-15 seconds; ~¥0.05-0.10 per photo
+- Generation speed depends on the selected backend and available GPU
 - Photos auto-save to `~/.herandhim/context/photos/` and are pruned after 30 days
-- Reference image (if present) is sent inline as a data URL
+- The primary face reference is passed to identity-capable backends; ComfyUI uses the configured InstantID/PuLID workflow
 - Seed is deterministic from the character description, so consistency improves
   even without a reference photo
 

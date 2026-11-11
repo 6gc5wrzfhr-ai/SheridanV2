@@ -29,8 +29,26 @@ def _photos_dir() -> str:
     return os.path.join(str(config.HERANDHIM_HOME), "context", "photos")
 
 
-def _reference_dir() -> str:
-    return os.path.join(_photos_dir(), "reference")
+def _reference_dir(root: str | None = None) -> str:
+    """Reference directory for this album (or the configured home by default)."""
+    base = root or _photos_dir()
+    return os.path.join(base, "reference")
+
+
+def _reference_source_dir() -> str:
+    """Optional read-only directory containing user-supplied reference images."""
+    return config.get_str(
+        "skills", "image", "referenceDirectory",
+        env="HERANDHIM_IMAGE_REFERENCE_DIR", default="",
+    ).strip()
+
+
+def _primary_reference_override() -> str:
+    """Optional exact face-master path; takes precedence over directory sorting."""
+    return config.get_str(
+        "skills", "image", "primaryReference",
+        env="HERANDHIM_IMAGE_PRIMARY_REFERENCE", default="",
+    ).strip()
 
 
 class PhotoAlbum:
@@ -40,7 +58,7 @@ class PhotoAlbum:
         self.root = root or _photos_dir()
         self.retention_days = retention_days
         os.makedirs(self.root, exist_ok=True)
-        os.makedirs(_reference_dir(), exist_ok=True)
+        os.makedirs(_reference_dir(self.root), exist_ok=True)
 
     # ── Index ────────────────────────────────────────────────────────────
 
@@ -68,54 +86,108 @@ class PhotoAlbum:
     # ── Reference images ─────────────────────────────────────────────────
 
     def list_references(self) -> list[str]:
-        d = _reference_dir()
-        if not os.path.isdir(d):
-            return []
-        return sorted(
-            os.path.join(d, n) for n in os.listdir(d)
-            if n.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
-        )
+        """List local and optional external reference images without modifying either."""
+        roots = [_reference_dir(self.root)]
+        source = _reference_source_dir()
+        if source:
+            roots.append(os.path.expanduser(source))
+
+        found: list[str] = []
+        seen: set[str] = set()
+        for directory in roots:
+            if not os.path.isdir(directory):
+                continue
+            for name in sorted(os.listdir(directory)):
+                if not name.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                    continue
+                path = os.path.realpath(os.path.join(directory, name))
+                if path not in seen and os.path.isfile(path):
+                    seen.add(path)
+                    found.append(path)
+        return found
 
     def primary_reference(self) -> str | None:
-        refs = self.list_references()
-        return refs[0] if refs else None
+        """Resolve the canonical face reference without guessing from body/tattoo files.
 
-    # Canonical face reference filename — one per companion, deterministic so
-    # the filename is stable across regenerations.
-    REFERENCE_NAME = "companion_reference.jpg"
+        Prefer an explicitly configured master, then recognisable Sheridan/master
+        filenames, then the app's own canonical reference. Never guess that an
+        arbitrary first image is the face: the flat source folder can also contain
+        body, pose, expression and tattoo references.
+        """
+        override = os.path.expanduser(_primary_reference_override())
+        if override:
+            if not os.path.isfile(override):
+                raise FileNotFoundError(
+                    f"Configured Sheridan primaryReference does not exist: {override}"
+                )
+            return os.path.realpath(override)
+
+        refs = self.list_references()
+        if not refs:
+            return None
+
+        def rank(path: str) -> tuple[int, str]:
+            name = os.path.basename(path).lower()
+            stem = os.path.splitext(name)[0]
+            if stem in {"sheridan_master", "sheridan_primary", "sheridan_face_master",
+                        "primary_face", "face_master"}:
+                return (0, name)
+            if "sheridan" in stem and any(k in stem for k in ("master", "primary", "face")):
+                return (1, name)
+            if stem == "companion_reference":
+                return (2, name)
+            if any(k in stem for k in ("face", "portrait", "headshot")):
+                return (3, name)
+            return (4, name)
+
+        ranked = sorted(refs, key=rank)
+        # A generic filename could be a body, pose, expression or tattoo image.
+        # Require an explicit master path/name rather than silently anchoring
+        # Sheridan's face to whichever file happens to sort first.
+        return ranked[0] if ranked and rank(ranked[0])[0] < 4 else None
+
+    # Canonical face reference stored by the app. External reference collections
+    # are read-only and are never deleted when this value is refreshed.
+    REFERENCE_NAME = "companion_reference"
 
     def set_reference(self, src_path: str) -> str:
-        """Promote ``src_path`` to THE canonical face reference (replacing any
-        existing one).  Returns the stored path."""
-        import shutil
-        d = _reference_dir()
+        """Store/replace only the app-managed canonical reference; preserve all others."""
+        d = _reference_dir(self.root)
         os.makedirs(d, exist_ok=True)
-        for old in self.list_references():     # one face only — clear the rest
-            try:
-                os.remove(old)
-            except OSError:
-                pass
-        dst = os.path.join(d, self.REFERENCE_NAME)
+        ext = os.path.splitext(src_path)[1].lower() or ".jpg"
+        if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+            ext = ".jpg"
+        dst = os.path.join(d, self.REFERENCE_NAME + ext)
+        for old in os.listdir(d):
+            if os.path.splitext(old)[0] == self.REFERENCE_NAME and old != os.path.basename(dst):
+                try:
+                    os.remove(os.path.join(d, old))
+                except OSError:
+                    pass
         shutil.copyfile(src_path, dst)
         return dst
 
     def save_reference_bytes(self, data: bytes) -> str:
-        """Write raw image bytes as the canonical reference, so the same
-        face anchors every future shot."""
-        d = _reference_dir()
+        """Write raw image bytes as the app-managed canonical reference."""
+        d = _reference_dir(self.root)
         os.makedirs(d, exist_ok=True)
-        dst = os.path.join(d, self.REFERENCE_NAME)
+        dst = os.path.join(d, self.REFERENCE_NAME + ".jpg")
         with open(dst, "wb") as f:
             f.write(data)
         return dst
 
     def clear_references(self) -> None:
-        """Drop all reference images (e.g. appearance changed on re-customize)."""
-        for old in self.list_references():
-            try:
-                os.remove(old)
-            except OSError:
-                pass
+        """Clear only app-managed references; never delete the user's source collection."""
+        d = _reference_dir(self.root)
+        if not os.path.isdir(d):
+            return
+        for name in os.listdir(d):
+            path = os.path.join(d, name)
+            if os.path.isfile(path) and name.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
     # ── Save ─────────────────────────────────────────────────────────────
 

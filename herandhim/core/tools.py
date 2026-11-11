@@ -609,10 +609,11 @@ PRIMITIVE_TOOLS: list[dict] = [
     ),
     _fn(
         "take_selfie",
-        "Take a selfie of YOU (the AI companion) and send it to the user in one Telegram message. "
-        "Use whenever the user asks to see you, asks for a selfie, or asks 'send me a photo'. "
+        "Take a selfie of YOU (the AI companion) and send it to the user in the active chat. "
+        "Use when the user asks for a photo OR when a spontaneous image would naturally enrich the conversation. "
+        "Use the configured image provider, including local ComfyUI. "
         "Put your short in-character caption in the `caption` arg — it ships WITH the photo. "
-        "Do NOT also write text outside this tool call.",
+        "Do NOT claim it was sent unless this tool succeeds.",
         {
             "scene_hint": {"type": "string", "description": "Optional one-line scene context (e.g. 'just made coffee', 'on the couch reading').", "default": ""},
             "caption":    {"type": "string", "description": "Short in-character caption that ships with the photo (≤ 2 short phrases).", "default": ""},
@@ -622,7 +623,7 @@ PRIMITIVE_TOOLS: list[dict] = [
     _fn(
         "candid_shot",
         "Take a candid 'look what I saw' phone snapshot of the world around you (NOT a selfie) and "
-        "send it to the user in one Telegram message. Pick a category based on context.",
+        "send it to the user in one message in the active chat. Pick a category based on context.",
         {
             "category": {
                 "type": "string",

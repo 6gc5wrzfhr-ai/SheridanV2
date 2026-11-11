@@ -105,7 +105,9 @@
   },
   "skills": {
     "image": {
-      "provider": ""
+      "provider": "",
+      "referenceDirectory": "",
+      "primaryReference": ""
     },
     "gemini": {
       "apiKey": "",
@@ -178,7 +180,9 @@
     "chatId": null,
     "model": null,
     "maxDaily": 3,
-    "proactiveProbability": 0.15
+    "proactiveProbability": 0.15,
+    "conversationSharing": true,
+    "conversationFrequency": "frequent"
   },
   "proactive": {
     "enabled": true,
