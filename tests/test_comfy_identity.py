@@ -218,7 +218,10 @@ class TestIdentityGeneration:
             gen.generate("selfie", size="1024x1024", seed=1,
                          reference_image=reference_file)
 
-    def test_upload_failure_falls_back(self, reference_file, monkeypatch):
+    def test_upload_failure_stops_generation_instead_of_dropping_face_reference(
+        self, reference_file, monkeypatch
+    ):
+        """A failed reference upload must never silently produce an unanchored face."""
         server = FakeComfy()
         orig_post = server.post
 
@@ -237,9 +240,8 @@ class TestIdentityGeneration:
         monkeypatch.setenv("HERANDHIM_COMFYUI_IDENTITY_WORKFLOW", "flux-pulid")
 
         gen = make_generator()
-        out = gen.generate("selfie", size="1024x1024", seed=1,
-                           reference_image=reference_file)
+        with pytest.raises(SeedreamError, match="could not upload Sheridan's face reference"):
+            gen.generate("selfie", size="1024x1024", seed=1,
+                         reference_image=reference_file)
 
-        assert out
-        classes = {n["class_type"] for n in server.submitted_graphs[0].values()}
-        assert "ApplyPulidFlux" not in classes
+        assert server.submitted_graphs == []
