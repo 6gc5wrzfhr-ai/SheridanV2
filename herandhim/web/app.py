@@ -1007,33 +1007,53 @@ async def _api_list_files(request: Request):
 # ── Web file sender ───────────────────────────────────────────────────────────
 
 def _register_web_file_sender(loop: asyncio.AbstractEventLoop, ws: WebSocket) -> None:
-    """Register a sync callback so the Agent can push file-download links to the web UI."""
-    from ..core.tools import set_file_sender
+    """Register file and inline-photo callbacks for the active web chat."""
+    import base64 as _b64
+    import mimetypes as _mimetypes
+    from ..core.tools import set_file_sender, set_photo_sender
 
-    def _sender(path: str, caption: str = "") -> None:
-        import base64 as _b64
-
-        name = os.path.basename(path)
-        size = os.path.getsize(path)
-        with open(path, "rb") as fh:
-            data = _b64.b64encode(fh.read()).decode()
-
+    def _push_payload(payload: dict, label: str) -> None:
         async def _push():
             try:
-                await ws.send_json({
-                    "type": "file",
-                    "filename": name,
-                    "size": size,
-                    "caption": caption,
-                    "data": data,
-                })
+                await ws.send_json(payload)
             except Exception as exc:
-                logger.warning("[Web] send_file via WS failed: %s", exc)
+                logger.warning("[Web] %s via WS failed: %s", label, exc)
 
         future = asyncio.run_coroutine_threadsafe(_push(), loop)
         future.result(timeout=60)
 
-    set_file_sender(_session_id_for_current_user(), _sender)
+    def _read_payload(path: str) -> tuple[str, str, int]:
+        name = os.path.basename(path)
+        size = os.path.getsize(path)
+        with open(path, "rb") as fh:
+            data = _b64.b64encode(fh.read()).decode()
+        return name, data, size
+
+    def _sender(path: str, caption: str = "") -> None:
+        name, data, size = _read_payload(path)
+        _push_payload({
+            "type": "file",
+            "filename": name,
+            "size": size,
+            "caption": caption,
+            "data": data,
+        }, "send_file")
+
+    def _photo_sender(path: str, caption: str = "") -> None:
+        name, data, size = _read_payload(path)
+        mime = _mimetypes.guess_type(name)[0] or "image/jpeg"
+        _push_payload({
+            "type": "photo",
+            "filename": name,
+            "size": size,
+            "caption": caption,
+            "mime": mime,
+            "data": data,
+        }, "send_photo")
+
+    session_id = _session_id_for_current_user()
+    set_file_sender(session_id, _sender)
+    set_photo_sender(session_id, _photo_sender)
 
 
 # ── WebSocket Chat ────────────────────────────────────────────────────────────
