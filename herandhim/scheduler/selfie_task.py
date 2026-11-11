@@ -62,7 +62,7 @@ class SelfieScheduler:
 
     def register(self) -> int:
         if not is_enabled():
-            logger.info("[SelfieScheduler] disabled (no Seedream key or selfie.enabled=false)")
+            logger.info("[SelfieScheduler] disabled (no usable image provider or selfie.enabled=false)")
             return 0
 
         times = self._read_schedule()
